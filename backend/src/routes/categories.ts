@@ -25,8 +25,10 @@ router.get('/:categoryName/videos', async (req, res) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     
+    const categoryRegex = new RegExp(`^${req.params.categoryName}$`, 'i');
+    
     const videos = await Video.find({
-      category: req.params.categoryName,
+      category: { $regex: categoryRegex },
       isActive: true
     })
     .sort({ uploadDate: -1 })

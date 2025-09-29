@@ -32,6 +32,9 @@ const cachedRequest = async (url: string, params?: any, ttl?: number) => {
   return response;
 };
 
+// Export apiCache for external use
+export { apiCache };
+
 export const videoAPI = {
   getAll: (page = 1, limit = 20, category?: string) =>
     cachedRequest('/videos', { page, limit, category }, 2 * 60 * 1000), // 2 min cache
@@ -59,8 +62,13 @@ export const videoAPI = {
   updateThumbnail: (id: string, thumbnailFile: File) => {
     const formData = new FormData();
     formData.append('thumbnail', thumbnailFile);
+    // Clear cache and add timestamp to force refresh
+    apiCache.clear();
     return api.put(`/videos/${id}/thumbnail`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(response => {
+      // Add timestamp to response for cache busting
+      return { ...response, thumbnailUpdated: Date.now() };
     });
   },
   

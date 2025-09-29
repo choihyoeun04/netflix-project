@@ -1,28 +1,53 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import CategoryRow from '../components/CategoryRow';
 import VideoPlayer from '../components/VideoPlayer';
-import SearchBar from '../components/SearchBar';
-import SearchResults from '../components/SearchResults';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { categoryAPI, videoAPI, Video } from '../services/api';
+
+// Import apiCache directly
+import { apiCache } from '../services/api';
 
 const HomePage: React.FC = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
-  const [searchResults, setSearchResults] = useState<Video[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchMode, setIsSearchMode] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const location = useLocation();
 
   // Default categories to always show
-  const defaultCategories = ['Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Documentary'];
+  const defaultCategories = ['Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Documentary', 'Music'];
+
+  useEffect(() => {
+    // Force refresh when navigating to home page
+    setRefreshKey(Date.now());
+    fetchCategories();
+  }, [location.pathname]);
 
   useEffect(() => {
     fetchCategories();
+    
+    // Listen for storage events to refresh when thumbnails are updated
+    const handleStorageChange = () => {
+      // Force refresh of categories when returning from dashboard
+      setRefreshKey(Date.now());
+      fetchCategories();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleStorageChange);
+    };
   }, []);
 
   const fetchCategories = async () => {
     try {
+      // Clear cache to ensure fresh data
+      apiCache.clear();
+      
       const response = await categoryAPI.getAll();
       const existingCategories = response.data.categories.map((cat: any) => cat.name);
       
@@ -48,28 +73,9 @@ const HomePage: React.FC = () => {
     setSelectedVideo(null);
   };
 
-  const handleSearchResults = (results: Video[], query: string) => {
-    setSearchResults(results);
-    setSearchQuery(query);
-    setIsSearchMode(true);
-  };
-
-  const handleClearSearch = () => {
-    setSearchResults([]);
-    setSearchQuery('');
-    setIsSearchMode(false);
-  };
-
   if (loading) {
     return (
       <div className="home-page">
-        <div className="hero-section">
-          <SearchBar 
-            onSearchResults={handleSearchResults}
-            onClearSearch={handleClearSearch}
-          />
-          <h1>Browse Videos</h1>
-        </div>
         <div className="categories-container">
           <LoadingSkeleton type="category" count={4} />
         </div>
@@ -79,41 +85,24 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="home-page">
-      <div className="hero-section">
-        <SearchBar 
-          onSearchResults={handleSearchResults}
-          onClearSearch={handleClearSearch}
-        />
-        {!isSearchMode && <h1>Browse Videos</h1>}
-      </div>
-      
-      {isSearchMode ? (
-        <div className="container">
-          <SearchResults
-            results={searchResults}
-            query={searchQuery}
-            onVideoSelect={handleVideoSelect}
-            onClearSearch={handleClearSearch}
-          />
-        </div>
-      ) : (
-        <div className="categories-container">
-          {categories.map((category) => (
-            <CategoryRow
-              key={category}
-              categoryName={category}
-              onVideoSelect={handleVideoSelect}
-            />
-          ))}
-        </div>
-      )}
-
       {selectedVideo && (
         <VideoPlayer
           video={selectedVideo}
           onClose={handleClosePlayer}
         />
       )}
+
+      <div className="container">
+        <div className="categories-container">
+          {categories.map((category) => (
+            <CategoryRow
+              key={`${category}-${refreshKey}`}
+              categoryName={category}
+              onVideoSelect={handleVideoSelect}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

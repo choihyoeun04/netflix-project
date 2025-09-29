@@ -17,11 +17,32 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadSuccess }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState('');
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  // Validation limits
+  const MAX_TITLE_LENGTH = 40;
+  const MAX_DESCRIPTION_LENGTH = 200;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    // Clear previous error for this field
+    setErrors(prev => ({ ...prev, [name]: '' }));
+    
+    // Validate length limits
+    if (name === 'title' && value.length > MAX_TITLE_LENGTH) {
+      setErrors(prev => ({ ...prev, title: `Title must be ${MAX_TITLE_LENGTH} characters or less` }));
+      return;
+    }
+    
+    if (name === 'description' && value.length > MAX_DESCRIPTION_LENGTH) {
+      setErrors(prev => ({ ...prev, description: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or less` }));
+      return;
+    }
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
   };
 
@@ -71,14 +92,37 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    const newErrors: {[key: string]: string} = {};
+    
+    if (!formData.title.trim()) {
+      newErrors.title = 'Title is required';
+    } else if (formData.title.length > MAX_TITLE_LENGTH) {
+      newErrors.title = `Title must be ${MAX_TITLE_LENGTH} characters or less`;
+    }
+    
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    } else if (formData.description.length > MAX_DESCRIPTION_LENGTH) {
+      newErrors.description = `Description must be ${MAX_DESCRIPTION_LENGTH} characters or less`;
+    }
+    
     if (!file) {
-      setMessage('Please select a video file');
+      newErrors.file = 'Video file is required';
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
+    if (!file) return; // Additional safety check
 
     setUploading(true);
     setUploadProgress(0);
     setMessage('');
+    setErrors({});
 
     const uploadData = new FormData();
     uploadData.append('video', file);
@@ -180,7 +224,14 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadSuccess }) => {
               onChange={handleInputChange}
               required
               disabled={uploading}
+              maxLength={MAX_TITLE_LENGTH}
             />
+            <div className="input-info">
+              <span className={`char-count ${formData.title.length > MAX_TITLE_LENGTH ? 'error' : ''}`}>
+                {formData.title.length}/{MAX_TITLE_LENGTH}
+              </span>
+            </div>
+            {errors.title && <div className="error-message">{errors.title}</div>}
           </div>
 
           <div className="form-group">
@@ -200,6 +251,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadSuccess }) => {
               <option value="Horror">Horror</option>
               <option value="Sci-Fi">Sci-Fi</option>
               <option value="Documentary">Documentary</option>
+              <option value="Music">Music</option>
             </select>
           </div>
         </div>
@@ -214,7 +266,14 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadSuccess }) => {
             rows={3}
             required
             disabled={uploading}
+            maxLength={MAX_DESCRIPTION_LENGTH}
           />
+          <div className="input-info">
+            <span className={`char-count ${formData.description.length > MAX_DESCRIPTION_LENGTH ? 'error' : ''}`}>
+              {formData.description.length}/{MAX_DESCRIPTION_LENGTH}
+            </span>
+          </div>
+          {errors.description && <div className="error-message">{errors.description}</div>}
         </div>
 
         <div className="form-group">

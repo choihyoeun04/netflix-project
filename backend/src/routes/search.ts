@@ -12,8 +12,16 @@ router.get('/', async (req, res) => {
     
     if (!query) return res.status(400).json({ error: 'Search query required' });
     
+    // Use regex for partial matching (case insensitive)
+    const searchRegex = new RegExp(query, 'i');
+    
     const results = await Video.find({
-      $text: { $search: query },
+      $or: [
+        { title: { $regex: searchRegex } },
+        { description: { $regex: searchRegex } },
+        { category: { $regex: searchRegex } },
+        { tags: { $regex: searchRegex } }
+      ],
       isActive: true
     })
     .select('title description category uploadDate views')
@@ -21,7 +29,12 @@ router.get('/', async (req, res) => {
     .skip((page - 1) * limit);
     
     const totalResults = await Video.countDocuments({
-      $text: { $search: query },
+      $or: [
+        { title: { $regex: searchRegex } },
+        { description: { $regex: searchRegex } },
+        { category: { $regex: searchRegex } },
+        { tags: { $regex: searchRegex } }
+      ],
       isActive: true
     });
     
